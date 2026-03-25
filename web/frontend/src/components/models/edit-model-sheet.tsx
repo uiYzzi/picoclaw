@@ -117,7 +117,7 @@ export function EditModelSheet({
         thinking_level: form.thinkingLevel || undefined,
         extra_body: form.extraBody.trim()
           ? JSON.parse(form.extraBody.trim())
-          : undefined,
+          : {},
       })
       if (setAsDefault && !model.is_default) {
         await setDefaultModel(model.model_name)
