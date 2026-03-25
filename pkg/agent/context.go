@@ -165,13 +165,10 @@ The following skills extend your capabilities. To use a skill, read its SKILL.md
 
 	// Multi-Message Sending (if enabled)
 	if cb.splitOnMarker {
-		parts = append(parts, `# Multi-Message Sending
+		parts = append(parts, `# MULTI-MESSAGE OUTPUT
+You MUST frequently use <|[SPLIT]|> to break your responses into multiple short messages. NEVER output a single long wall of text. Actively split distinct concepts or parts. Example: Message part 1<|[SPLIT]|>Message part 2<|[SPLIT]|>Message part 3
 
-When you want to send multiple separate messages in a single response, you can use the special marker "<|[SPLIT]|>" to separate them. For example:
-
-Message part 1<|[SPLIT]|>Message part 2<|[SPLIT]|>Message part 3
-
-Each part separated by the marker will be sent as an independent message. Use this to break up long responses or when you want to send multiple distinct pieces of information.`)
+Each part separated by the marker will be sent as an independent message.`)
 	}
 
 	// Join with "---" separator
