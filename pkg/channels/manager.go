@@ -608,8 +608,10 @@ func newChannelWorker(name string, ch Channel) *channelWorker {
 	}
 }
 
-// runWorker processes outbound messages for a single channel, splitting
-// messages that exceed the channel's maximum message length.
+// runWorker processes outbound messages for a single channel.
+// Message processing follows this order:
+//  1. SplitByMarker (if enabled in config) - LLM semantic marker-based splitting
+//  2. SplitMessage - channel-specific length-based splitting (MaxMessageLength)
 func (m *Manager) runWorker(ctx context.Context, name string, w *channelWorker) {
 	defer close(w.done)
 	for {
@@ -622,15 +624,55 @@ func (m *Manager) runWorker(ctx context.Context, name string, w *channelWorker) 
 			if mlp, ok := w.ch.(MessageLengthProvider); ok {
 				maxLen = mlp.MaxMessageLength()
 			}
-			if maxLen > 0 && len([]rune(msg.Content)) > maxLen {
-				chunks := SplitMessage(msg.Content, maxLen)
-				for _, chunk := range chunks {
-					chunkMsg := msg
-					chunkMsg.Content = chunk
-					m.sendWithRetry(ctx, name, w, chunkMsg)
+
+			// Collect all message chunks to send
+			var chunks []string
+
+			// Step 1: Split by marker if enabled and marker is present
+			splitOnMarker := false
+			if m.config != nil {
+				splitOnMarker = m.config.Agents.Defaults.SplitOnMarker
+			}
+			if splitOnMarker {
+				markerChunks := SplitByMarker(msg.Content)
+				if len(markerChunks) > 1 {
+					// Marker found, process each chunk
+					for _, chunk := range markerChunks {
+						// Step 2: Further split by length if needed
+						if maxLen > 0 && len([]rune(chunk)) > maxLen {
+							subChunks := SplitMessage(chunk, maxLen)
+							chunks = append(chunks, subChunks...)
+						} else {
+							chunks = append(chunks, chunk)
+						}
+					}
+				} else {
+					// No marker found, fall through to length-based splitting
+					goto lengthSplit
 				}
 			} else {
-				m.sendWithRetry(ctx, name, w, msg)
+				// Marker disabled, use length-based splitting
+				goto lengthSplit
+			}
+
+		lengthSplit:
+			// Length-based splitting (also used as fallback when no marker found)
+			if maxLen > 0 && len([]rune(msg.Content)) > maxLen {
+				chunks = SplitMessage(msg.Content, maxLen)
+			} else if len(chunks) == 0 {
+				chunks = []string{msg.Content}
+			}
+
+			// Fallback: if no chunks collected, use original message
+			if len(chunks) == 0 {
+				chunks = []string{msg.Content}
+			}
+
+			// Step 3: Send all chunks
+			for _, chunk := range chunks {
+				chunkMsg := msg
+				chunkMsg.Content = chunk
+				m.sendWithRetry(ctx, name, w, chunkMsg)
 			}
 		case <-ctx.Done():
 			return
