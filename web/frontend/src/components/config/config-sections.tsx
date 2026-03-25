@@ -218,14 +218,16 @@ export function ExecSection({ form, onFieldChange }: ExecSectionProps) {
       return
     }
 
-    const denyPatterns = form.customDenyPatternsText
-      .split("\n")
-      .map((p) => p.trim())
-      .filter((p) => p.length > 0)
     const allowPatterns = form.customAllowPatternsText
       .split("\n")
       .map((p) => p.trim())
       .filter((p) => p.length > 0)
+    const denyPatterns = form.enableDenyPatterns
+      ? form.customDenyPatternsText
+          .split("\n")
+          .map((p) => p.trim())
+          .filter((p) => p.length > 0)
+      : []
 
     setIsLoading(true)
     try {
